@@ -66,6 +66,8 @@ function csurf (options) {
   var ignoreMethod = getIgnoredMethods(ignoreMethods)
 
   return function csrf (req, res, next) {
+    var url = req.protocol + '://' + req.get('host') + req.originalUrl;
+    console.log('Enter function csrf - request: %s', url);
     // validate the configuration against request
     if (!verifyConfiguration(req, sessionKey, cookie)) {
       return next(new Error('misconfigured csrf'))
@@ -73,6 +75,8 @@ function csurf (options) {
 
     // get the secret from the request
     var secret = getSecret(req, sessionKey, cookie)
+    console.log('csrf - secret %s', secret);
+    
     var token
 
     // lazy-load token getter
@@ -80,24 +84,26 @@ function csurf (options) {
       var sec = !cookie
         ? getSecret(req, sessionKey, cookie)
         : secret
-
+        console.log('csrfToken - sec %s', sec);
       // use cached token if secret has not changed
       if (token && sec === secret) {
+        console.log('csrfToken - return existing token %s', token);
         return token
       }
 
       // generate & set new secret
       if (sec === undefined) {
+        console.log('csrfToken - undefined seed sed');
         sec = tokens.secretSync()
         setSecret(req, res, sessionKey, sec, cookie)
       }
 
       // update changed secret
       secret = sec
-
+      console.log('csrfToken - secret %s', secret);
       // create new token
       token = tokens.create(secret)
-
+      console.log('Exit csrfToken - return new token %s', token);
       return token
     }
 
@@ -105,15 +111,17 @@ function csurf (options) {
     if (!secret) {
       secret = tokens.secretSync()
       setSecret(req, res, sessionKey, secret, cookie)
+      console.log('csrf - secret %s', secret);
     }
 
     // verify the incoming token
     if (!ignoreMethod[req.method] && !tokens.verify(secret, value(req))) {
+      console.log('Exit function csrf request url with EBADCSRFTOKEN %s', url);
       return next(createError(403, 'invalid csrf token', {
         code: 'EBADCSRFTOKEN'
       }))
     }
-
+    console.log('Exit function csrf request url %s', url);
     next()
   }
 }
@@ -200,7 +208,7 @@ function getSecret (req, sessionKey, cookie) {
   // get the bag & key
   var bag = getSecretBag(req, sessionKey, cookie)
   var key = cookie ? cookie.key : 'csrfSecret'
-
+  console.log('getSecret secret key: %s', key);
   if (!bag) {
     throw new Error('misconfigured csrf')
   }
